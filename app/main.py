@@ -1,4 +1,4 @@
-"""Milestone 2 smoke runner: discover pairs, bootstrap candles, and stream updates."""
+"""Milestone 3 runner: bootstrap Wilder RSI and evaluate live candle updates."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ import aiohttp
 from app.binance import BinanceSpotClient
 from app.config import Settings
 from app.market_data import BinanceKlineStream, MAX_STREAMS_PER_CONNECTION
+from app.rsi import WilderRSI
 
 
 def chunked(items: list[str], size: int) -> list[list[str]]:
@@ -32,21 +33,47 @@ async def main() -> None:
         histories = await client.load_symbol_history(
             symbols, interval=settings.kline_interval, limit=1000
         )
+        server_time = await client.get_server_time()
+        rsi_by_symbol: dict[str, WilderRSI] = {}
+        for symbol, rows in histories.items():
+            # Binance REST kline rows: close at index 4, close time at index 6.
+            closed_rows = [row for row in rows if int(row[6]) <= server_time]
+            if len(closed_rows) < settings.rsi_period + 1:
+                logging.warning("Not enough closed candles to seed RSI for %s", symbol)
+                continue
+            closes = [float(row[4]) for row in closed_rows]
+            rsi_by_symbol[symbol] = WilderRSI(closes, period=settings.rsi_period)
+
         logging.info(
-            "Loaded historical candles for %d/%d symbols", len(histories), len(symbols)
+            "Initialized RSI(%d) for %d/%d symbols",
+            settings.rsi_period,
+            len(rsi_by_symbol),
+            len(symbols),
         )
 
         async def on_kline(symbol: str, kline: dict) -> None:
-            # Milestone 3 will calculate RSI from this forming/closed candle.
-            logging.debug(
-                "%s %s close=%s closed=%s",
-                symbol,
-                kline.get("i"),
-                kline.get("c"),
-                kline.get("x"),
-            )
+            calculator = rsi_by_symbol.get(symbol)
+            if calculator is None:
+                return
+            try:
+                close = float(kline["c"])
+                if kline.get("x") is True:
+                    value = calculator.commit(close)
+                    logging.info("%s RSI(%d) candle closed: %.2f", symbol, settings.rsi_period, value)
+                else:
+                    value = calculator.preview(close)
+                    if value < settings.rsi_threshold:
+                        logging.info(
+                            "%s RSI(%d) below %.2f: %.2f (forming candle)",
+                            symbol,
+                            settings.rsi_period,
+                            settings.rsi_threshold,
+                            value,
+                        )
+            except (KeyError, TypeError, ValueError) as exc:
+                logging.warning("Skipping invalid kline update for %s: %s", symbol, exc)
 
-        groups = chunked(symbols, MAX_STREAMS_PER_CONNECTION)
+        groups = chunked(list(rsi_by_symbol), MAX_STREAMS_PER_CONNECTION)
         logging.info(
             "Starting %d WebSocket connection(s), up to %d symbols each",
             len(groups),
@@ -60,6 +87,8 @@ async def main() -> None:
             )
             for group in groups
         ]
+        if not streams:
+            raise RuntimeError("No symbols have sufficient candle history to initialize RSI")
         await asyncio.gather(*(stream.run_forever() for stream in streams))
 
 
