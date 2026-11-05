@@ -83,6 +83,20 @@ RSI values can differ slightly from charting platforms if their candle history, 
 - Use a read-only/public market-data connection; no Binance trading API key is needed.
 - Rotate a Gmail App Password immediately if it is accidentally exposed.
 
+## Run the Milestone 2 market-data smoke test
+
+Create your local environment file and install the dependencies:
+
+```bash
+cp .env.example .env
+pip install -r requirements.txt
+python -m app.main
+```
+
+On Windows PowerShell, use `Copy-Item .env.example .env` instead of `cp`.
+
+The smoke test discovers active Spot USDT symbols, downloads recent 1-hour candles, and logs live candle updates at DEBUG level. Press `Ctrl+C` to stop it. It does not send email or calculate RSI yet. Symbols are split across WebSocket connections when needed to respect Binance's 1,024-stream-per-connection limit.
+
 ## Development milestones
 
 1. Repository foundation and secure configuration template.
