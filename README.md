@@ -2,7 +2,7 @@
 
 Real-time Binance Spot RSI(6) monitoring for USDT-quoted trading pairs, with automated Gmail alerts.
 
-> **Status:** Milestones 1–5 implemented. Local testing and cloud deployment remain.
+> **Status:** Milestones 1–6 implemented in the repository. Docker build and runtime validation should be completed locally before cloud deployment.
 
 ## Project goals
 
@@ -97,6 +97,19 @@ On Windows PowerShell, use `Copy-Item .env.example .env` instead of `cp`.
 
 The runner discovers active Spot USDT symbols, downloads recent 1-hour candles, calculates Wilder RSI(6) on live updates, and queues Gmail alerts when RSI crosses below the configured threshold. SQLite persists each symbol's armed/disarmed state and pending email outbox across restarts. Pending emails are retried at startup and every 30 seconds. Press `Ctrl+C` to stop it. Symbols are split across WebSocket connections when needed to respect Binance's 1,024-stream-per-connection limit.
 
+## Run with Docker Compose
+
+Install Docker Desktop (Windows/macOS) or Docker Engine with the Compose plugin (Linux). Create your local `.env` from `.env.example`, add your Gmail App Password, then run:
+
+```bash
+docker compose config
+docker compose up --build -d
+docker compose ps
+docker compose logs -f
+```
+
+Stop the service with `docker compose down`. The named `sentinel-data` volume keeps the SQLite database across container recreation. Do not use `docker compose down -v` unless you intentionally want to delete that persistent database. The container runs as a non-root user and restarts automatically unless stopped. Its health check validates the SQLite database; it does not prove that Binance or Gmail are reachable.
+
 ## Development milestones
 
 1. Repository foundation and secure configuration template.
@@ -104,7 +117,7 @@ The runner discovers active Spot USDT symbols, downloads recent 1-hour candles, 
 3. Wilder RSI(6) calculation and tests. (implemented; live forming-candle RSI is logged locally)
 4. Gmail notification delivery. (implemented)
 5. Alert state, SQLite persistence, and duplicate prevention. (implemented)
-6. Docker packaging, reliability tests, and observability. (next)
+6. Docker packaging, persistent volume, restart policy, and SQLite health check. (implemented; validate locally)
 7. Cloud deployment and 24/7 operation.
 
 ## Disclaimer
