@@ -95,15 +95,15 @@ python -m app.main
 
 On Windows PowerShell, use `Copy-Item .env.example .env` instead of `cp`.
 
-The smoke test discovers active Spot USDT symbols, downloads recent 1-hour candles, and logs live candle updates at DEBUG level. Press `Ctrl+C` to stop it. It does not send email or calculate RSI yet. Symbols are split across WebSocket connections when needed to respect Binance's 1,024-stream-per-connection limit.
+The runner discovers active Spot USDT symbols, downloads recent 1-hour candles, calculates Wilder RSI(6) on live updates, and sends Gmail alerts when RSI crosses below the configured threshold. Press `Ctrl+C` to stop it. Alert re-arming is currently in memory and will become restart-safe with SQLite in Milestone 5. Symbols are split across WebSocket connections when needed to respect Binance's 1,024-stream-per-connection limit.
 
 ## Development milestones
 
 1. Repository foundation and secure configuration template.
 2. Binance Spot USDT symbol discovery and market-data client.
 3. Wilder RSI(6) calculation and tests. (implemented; live forming-candle RSI is logged locally)
-4. Gmail notification delivery.
-5. Alert state, persistence, and duplicate prevention.
+4. Gmail notification delivery. (implemented; configure Gmail SMTP credentials in your local .env)
+5. Alert state, SQLite persistence, and restart-safe duplicate prevention. (next)
 6. Docker packaging, reliability tests, and observability.
 7. Cloud deployment and 24/7 operation.
 
