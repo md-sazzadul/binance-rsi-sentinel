@@ -54,6 +54,11 @@ class BinanceSpotClient:
                 await asyncio.sleep(delay)
         raise BinanceAPIError(f"Unable to retrieve {url}")
 
+    async def get_server_time(self) -> int:
+        """Return Binance server time in milliseconds since the Unix epoch."""
+        payload = await self._get_json("/api/v3/time")
+        return int(payload["serverTime"])
+
     async def get_spot_usdt_symbols(self) -> list[str]:
         """Return active Spot symbols whose quote asset is USDT."""
         payload = await self._get_json("/api/v3/exchangeInfo")
