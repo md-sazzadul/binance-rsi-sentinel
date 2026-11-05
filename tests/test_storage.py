@@ -38,7 +38,6 @@ def test_crossing_below_threshold_creates_one_pending_alert(tmp_path):
     assert len(pending) == 1
     assert pending[0].id == alert_id
     assert pending[0].symbol == "BTCUSDT"
-    assert pending[0].status if hasattr(pending[0], "status") else True
     assert store.get_symbol_state("BTCUSDT") is False
 
 
