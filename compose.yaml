@@ -1,0 +1,25 @@
+services:
+  binance-rsi-sentinel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: binance-rsi-sentinel
+    restart: unless-stopped
+    init: true
+    env_file:
+      - .env
+    environment:
+      DATABASE_PATH: /app/data/alerts.sqlite3
+      LOG_LEVEL: INFO
+    volumes:
+      - sentinel-data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.healthcheck"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    stop_grace_period: 30s
+
+volumes:
+  sentinel-data:
