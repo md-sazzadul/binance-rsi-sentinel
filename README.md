@@ -101,7 +101,7 @@ The smoke test discovers active Spot USDT symbols, downloads recent 1-hour candl
 
 1. Repository foundation and secure configuration template.
 2. Binance Spot USDT symbol discovery and market-data client.
-3. Wilder RSI(6) calculation and tests.
+3. Wilder RSI(6) calculation and tests. (implemented; live forming-candle RSI is logged locally)
 4. Gmail notification delivery.
 5. Alert state, persistence, and duplicate prevention.
 6. Docker packaging, reliability tests, and observability.
