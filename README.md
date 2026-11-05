@@ -2,7 +2,7 @@
 
 Real-time Binance Spot RSI(6) monitoring for USDT-quoted trading pairs, with automated Gmail alerts.
 
-> **Status:** Milestone 1 — repository and project foundation. The scanner and alert engine are not implemented yet.
+> **Status:** Milestones 1–5 implemented. Local testing and cloud deployment remain.
 
 ## Project goals
 
@@ -36,7 +36,7 @@ Binance Spot exchange information
           Gmail
 ```
 
-SQLite will persist alert state and event history so restarts do not cause unnecessary duplicate notifications. Docker will package the service for deployment.
+SQLite persists per-symbol alert arming and a durable email outbox. Pending notifications are retried on startup and periodically while the service is running. Docker will package the service for deployment.
 
 ## Repository layout
 
@@ -48,7 +48,7 @@ logs/         Runtime logs (not committed)
 tests/        Automated tests
 ```
 
-The application modules will be added in subsequent milestones.
+
 
 ## Requirements (planned)
 
@@ -95,16 +95,16 @@ python -m app.main
 
 On Windows PowerShell, use `Copy-Item .env.example .env` instead of `cp`.
 
-The runner discovers active Spot USDT symbols, downloads recent 1-hour candles, calculates Wilder RSI(6) on live updates, and sends Gmail alerts when RSI crosses below the configured threshold. Press `Ctrl+C` to stop it. Alert re-arming is currently in memory and will become restart-safe with SQLite in Milestone 5. Symbols are split across WebSocket connections when needed to respect Binance's 1,024-stream-per-connection limit.
+The runner discovers active Spot USDT symbols, downloads recent 1-hour candles, calculates Wilder RSI(6) on live updates, and queues Gmail alerts when RSI crosses below the configured threshold. SQLite persists each symbol's armed/disarmed state and pending email outbox across restarts. Pending emails are retried at startup and every 30 seconds. Press `Ctrl+C` to stop it. Symbols are split across WebSocket connections when needed to respect Binance's 1,024-stream-per-connection limit.
 
 ## Development milestones
 
 1. Repository foundation and secure configuration template.
 2. Binance Spot USDT symbol discovery and market-data client.
 3. Wilder RSI(6) calculation and tests. (implemented; live forming-candle RSI is logged locally)
-4. Gmail notification delivery. (implemented; configure Gmail SMTP credentials in your local .env)
-5. Alert state, SQLite persistence, and restart-safe duplicate prevention. (next)
-6. Docker packaging, reliability tests, and observability.
+4. Gmail notification delivery. (implemented)
+5. Alert state, SQLite persistence, and duplicate prevention. (implemented)
+6. Docker packaging, reliability tests, and observability. (next)
 7. Cloud deployment and 24/7 operation.
 
 ## Disclaimer
