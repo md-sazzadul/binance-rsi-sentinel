@@ -9,7 +9,12 @@ import aiohttp
 
 from app.binance import BinanceSpotClient
 from app.config import Settings
-from app.market_data import BinanceKlineStream
+from app.market_data import BinanceKlineStream, MAX_STREAMS_PER_CONNECTION
+
+
+def chunked(items: list[str], size: int) -> list[list[str]]:
+    """Split symbols into groups that fit Binance's per-connection stream limit."""
+    return [items[index : index + size] for index in range(0, len(items), size)]
 
 
 async def main() -> None:
@@ -33,7 +38,7 @@ async def main() -> None:
 
         async def on_kline(symbol: str, kline: dict) -> None:
             # Milestone 3 will calculate RSI from this forming/closed candle.
-            logging.info(
+            logging.debug(
                 "%s %s close=%s closed=%s",
                 symbol,
                 kline.get("i"),
@@ -41,12 +46,21 @@ async def main() -> None:
                 kline.get("x"),
             )
 
-        stream = BinanceKlineStream(
-            symbols=symbols,
-            handler=on_kline,
-            interval=settings.kline_interval,
+        groups = chunked(symbols, MAX_STREAMS_PER_CONNECTION)
+        logging.info(
+            "Starting %d WebSocket connection(s), up to %d symbols each",
+            len(groups),
+            MAX_STREAMS_PER_CONNECTION,
         )
-        await stream.run_forever()
+        streams = [
+            BinanceKlineStream(
+                symbols=group,
+                handler=on_kline,
+                interval=settings.kline_interval,
+            )
+            for group in groups
+        ]
+        await asyncio.gather(*(stream.run_forever() for stream in streams))
 
 
 if __name__ == "__main__":
