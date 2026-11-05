@@ -21,8 +21,17 @@ def chunked(items: list[str], size: int) -> list[list[str]]:
     return [items[index : index + size] for index in range(0, len(items), size)]
 
 
-async def deliver_pending_alerts(store: AlertStore, notifier: GmailNotifier) -> None:
+async def deliver_pending_alerts(
+    store: AlertStore, notifier: GmailNotifier, delivery_lock: asyncio.Lock
+) -> None:
     """Deliver queued notifications and mark them sent only after SMTP succeeds."""
+    async with delivery_lock:
+        await _deliver_pending_alerts_locked(store, notifier)
+
+
+async def _deliver_pending_alerts_locked(
+    store: AlertStore, notifier: GmailNotifier
+) -> None:
     for item in store.get_pending_alerts():
         alert = RSIAlert(
             symbol=item.symbol,
@@ -54,12 +63,13 @@ async def deliver_pending_alerts(store: AlertStore, notifier: GmailNotifier) -> 
 
 
 async def retry_outbox_forever(
-    store: AlertStore, notifier: GmailNotifier, interval_seconds: int = 30
+    store: AlertStore, notifier: GmailNotifier, delivery_lock: asyncio.Lock,
+    interval_seconds: int = 30
 ) -> None:
     """Retry pending email notifications periodically while the process is running."""
     while True:
         await asyncio.sleep(interval_seconds)
-        await deliver_pending_alerts(store, notifier)
+        await deliver_pending_alerts(store, notifier, delivery_lock)
 
 
 async def main() -> None:
@@ -104,9 +114,13 @@ async def main() -> None:
                 len(symbols),
             )
 
+            # Serialize all outbox sends so periodic retries cannot race a new alert.
+            delivery_lock = asyncio.Lock()
             # Retry notifications left pending by an earlier run before starting streams.
-            await deliver_pending_alerts(store, notifier)
-            outbox_task = asyncio.create_task(retry_outbox_forever(store, notifier))
+            await deliver_pending_alerts(store, notifier, delivery_lock)
+            outbox_task = asyncio.create_task(
+                retry_outbox_forever(store, notifier, delivery_lock)
+            )
 
             async def on_kline(symbol: str, kline: dict) -> None:
                 calculator = rsi_by_symbol.get(symbol)
@@ -145,7 +159,7 @@ async def main() -> None:
                             settings.rsi_period,
                             value,
                         )
-                        await deliver_pending_alerts(store, notifier)
+                        await deliver_pending_alerts(store, notifier, delivery_lock)
                 except (KeyError, TypeError, ValueError, OSError) as exc:
                     logging.warning("Could not process kline update for %s: %s", symbol, exc)
                 except Exception:
