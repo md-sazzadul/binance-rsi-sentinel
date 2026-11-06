@@ -96,8 +96,10 @@ class AlertStore:
         threshold: float,
         candle_close: str,
         candle_close_time: str,
+        candle_closed: bool = False,
     ) -> int | None:
-        """Persist a crossing and disarm atomically; return the new outbox ID."""
+        """Persist a live threshold crossing; only a closed candle can re-arm."""
+
         now = utc_now()
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -116,10 +118,11 @@ class AlertStore:
                 armed = bool(row["armed"])
 
             if rsi >= threshold:
-                connection.execute(
-                    "UPDATE symbol_state SET armed = 1, updated_at = ? WHERE symbol = ?",
-                    (now, symbol),
-                )
+                if candle_closed:
+                    connection.execute(
+                        "UPDATE symbol_state SET armed = 1, updated_at = ? WHERE symbol = ?",
+                        (now, symbol),
+                    )
                 return None
 
             if not armed:
