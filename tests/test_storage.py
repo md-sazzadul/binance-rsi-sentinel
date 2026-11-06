@@ -7,7 +7,7 @@ def make_store(tmp_path):
     return AlertStore(tmp_path / "alerts.sqlite3")
 
 
-def observe(store, symbol="BTCUSDT", rsi=19.5):
+def observe(store, symbol="BTCUSDT", rsi=19.5, candle_closed=False):
     return store.observe_rsi(
         symbol=symbol,
         rsi=rsi,
@@ -16,6 +16,7 @@ def observe(store, symbol="BTCUSDT", rsi=19.5):
         threshold=20.0,
         candle_close="65000.5",
         candle_close_time="2026-11-05T18:00:00+00:00",
+        candle_closed=candle_closed,
     )
 
 
@@ -58,7 +59,12 @@ def test_recovery_rearms_then_next_crossing_creates_alert(tmp_path):
     store.initialize_symbol("BTCUSDT", armed=True)
 
     assert observe(store, rsi=19.5) is not None
-    assert observe(store, rsi=22.0) is None
+    # An intrabar recovery must not re-arm the symbol.
+    assert observe(store, rsi=22.0, candle_closed=False) is None
+    assert observe(store, rsi=19.0) is None
+
+    # A recovery confirmed by a closed candle re-arms the symbol.
+    assert observe(store, rsi=22.0, candle_closed=True) is None
     next_alert = observe(store, rsi=19.0)
 
     assert next_alert is not None
@@ -97,3 +103,26 @@ def test_delivery_failure_keeps_alert_pending_and_increments_attempts(tmp_path):
 
     assert len(pending) == 1
     assert pending[0].attempts == 1
+
+
+
+def test_intrabar_recovery_does_not_rearm_alert(tmp_path):
+    store = make_store(tmp_path)
+    store.initialize_symbol("BTCUSDT", armed=True)
+
+    assert observe(store, rsi=19.5) is not None
+    assert observe(store, rsi=21.0, candle_closed=False) is None
+    assert observe(store, rsi=19.0) is None
+    assert len(store.get_pending_alerts()) == 1
+    assert store.get_symbol_state("BTCUSDT") is False
+
+
+def test_closed_candle_recovery_rearms_alert(tmp_path):
+    store = make_store(tmp_path)
+    store.initialize_symbol("BTCUSDT", armed=True)
+
+    assert observe(store, rsi=19.5) is not None
+    assert observe(store, rsi=21.0, candle_closed=True) is None
+    assert store.get_symbol_state("BTCUSDT") is True
+    assert observe(store, rsi=19.0) is not None
+    assert len(store.get_pending_alerts()) == 2
