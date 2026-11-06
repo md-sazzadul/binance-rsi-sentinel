@@ -151,6 +151,8 @@ async def main() -> None:
                         threshold=settings.rsi_threshold,
                         candle_close=f"{close:.12g}",
                         candle_close_time=candle_close_time,
+                        # Alerts remain intrabar, but re-arming requires a confirmed close.
+                        candle_closed=kline.get("x") is True,
                     )
                     if alert_id is not None:
                         logging.warning(
