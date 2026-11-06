@@ -10,7 +10,7 @@ Real-time Binance Spot RSI(6) monitoring for USDT-quoted trading pairs, with aut
 - Monitor each symbol's **1-hour** candlestick stream.
 - Calculate **RSI(6)** using Wilder's smoothing, updating with the still-forming candle.
 - Email an alert when RSI crosses from **20 or above to below 20**.
-- Avoid repeated emails while a symbol remains below the threshold; re-arm after RSI returns to 20 or above.
+- Avoid repeated emails while a symbol remains below the threshold; re-arm only after a 1-hour candle closes with RSI at 20 or above.
 - Run continuously in Docker on a cloud VM, with reconnect and recovery handling.
 
 This is an indicator-notification tool, not a trading bot. It does not place orders and does not provide investment advice.
@@ -71,8 +71,9 @@ The sender and recipient can be the same Gmail address. For SMTP, the applicatio
 - Interval: `1h`.
 - RSI length: `6`.
 - Threshold: strictly less than `20`.
-- Candle: current, still-forming candle is included; the RSI can move back above 20 before candle close.
-- Alert: trigger on the transition from RSI `>= 20` to RSI `< 20`; re-arm when RSI returns to `>= 20`.
+- Candle: current, still-forming candle is included for immediate alert detection.
+- Alert: trigger when live RSI falls below `20` while the symbol is armed.
+- Re-arming: only a completed 1-hour candle with RSI `>= 20` re-arms the symbol. Intrabar recoveries do not re-arm it, preventing repeated alerts from fluctuations around the threshold.
 
 RSI values can differ slightly from charting platforms if their candle history, initialization, or smoothing conventions differ. The implementation will be tested against known Wilder RSI examples and checked against Binance chart data.
 
